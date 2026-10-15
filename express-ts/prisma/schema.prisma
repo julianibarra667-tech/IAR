@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Roles de usuario
+enum Role {
+  USER
+  ADMIN
+}
+
+// Modelo de Usuario actualizado
+model User {
+  id           String   @id @default(uuid())
+  username     String?  @unique
+  passwordHash String?
+  name         String
+  lastName     String
+  age          Int
+  role         Role     @default(USER)
+  level        String   @default("Bronce")
+  points       Int      @default(0)
+  status       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  purchases Purchase[]
+}
+
+// Modelo de Productos (Dan experiencia / puntos)
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  expGiven    Int      // Puntos/Experiencia que otorga al comprarlo
+  imageUri    String?
+  status      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  purchases   Purchase[]
+}
+
+// Historial de compras para subir de nivel
+model Purchase {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+// Modelo de Premios / Recompensas
+model Reward {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  value       Float    @default(0)
+  pointsCost  Int      // Puntos requeridos para canjear
+  stock       Int      @default(0)
+  status      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
