@@ -1,13 +1,16 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from "react-native";
+import { Product, useProducts } from "../context/ProductsContext";
+import { useTheme } from "../context/ThemeContext";
 
 type RootStackParamList = {
   ProfileScreen: undefined;
@@ -17,30 +20,29 @@ type RootStackParamList = {
   SettingsScreen: undefined;
 };
 
-type Product = {
-  id: number;
-  name: string;
-  price: number;
-  points: number;
-  image: string;
-};
-
 type ProductsScreenProps = NativeStackScreenProps<RootStackParamList, "ProductsScreen">;
 
-const products: Product[] = [
-  { id: 1, name: "Gin Tonic", price: 8000, points: 80, image: "Image" },
-  { id: 2, name: "Margarita Tradicional", price: 8000, points: 75, image: "Image" },
-  { id: 3, name: "Mojito", price: 25000, points: 25, image: "Image" },
-  { id: 4, name: "Moscow Mule", price: 40000, points: 40, image: "Image" },
+const sampleProducts: Product[] = [
+
 ];
 
 export function ProductsScreen({ navigation }: ProductsScreenProps) {
+  const {
+    products: configuredProducts,
+    isLoading,
+    loadError,
+    reloadProducts,
+  } = useProducts();
+  const { theme, colors } = useTheme();
+  const products = useMemo(
+    () => [...sampleProducts, ...configuredProducts],
+    [configuredProducts]
+  );
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [cart, setCart] = useState<Product[]>([
-    { id: 2, name: "Margarita Tradicional", price: 75000, points: 75, image: "Image" },
-    { id: 2, name: "Margarita Tradicional", price: 75000, points: 75, image: "Image" },
-    { id: 5, name: "Margarita de Maracuya", price: 80000, points: 80, image: "Image" },
+
   ]);
+  const lastCartTap = useRef<{ index: number; time: number } | null>(null);
 
   const totalPrice = useMemo(
     () => cart.reduce((sum, product) => sum + product.price, 0),
@@ -56,17 +58,30 @@ export function ProductsScreen({ navigation }: ProductsScreenProps) {
     setCart((current) => [...current, product]);
   };
 
-  return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
+  const handleCartItemPress = (index: number) => {
+    const now = Date.now();
+    const previousTap = lastCartTap.current;
 
-      <View style={styles.phoneShell}>
+    if (previousTap?.index === index && now - previousTap.time < 350) {
+      setCart((current) => current.filter((_, itemIndex) => itemIndex !== index));
+      lastCartTap.current = null;
+      return;
+    }
+
+    lastCartTap.current = { index, time: now };
+  };
+
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.screen }]}>
+      <StatusBar style={theme === "dark" ? "light" : "dark"} />
+
+      <View style={[styles.phoneShell, { backgroundColor: colors.shell, borderColor: colors.border }]}>
         <View style={styles.topBar}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
           </Pressable>
 
-          <Text style={styles.brand}>Malva</Text>
+          <Text style={[styles.brand, { color: colors.text }]}>Malva</Text>
 
           <Pressable style={styles.cartToggle} onPress={() => setIsCartOpen((value) => !value)}>
             <Text style={styles.cartIcon}>🛒</Text>
@@ -74,68 +89,113 @@ export function ProductsScreen({ navigation }: ProductsScreenProps) {
         </View>
 
         {isCartOpen && (
-          <View style={styles.cartPanel}>
-            
+          <View style={[styles.cartPanel, { backgroundColor: colors.subtleSurface }]}>
+            <Text style={[styles.cartHint, { color: colors.mutedText }]}>Toca dos veces un producto para quitarlo</Text>
             {cart.map((product, index) => (
-              <View key={`${product.name}-${index}`} style={styles.cartItem}>
+              <Pressable
+                key={`${product.name}-${index}`}
+                style={[styles.cartItem, { backgroundColor: colors.surfaceStrong }]}
+                onPress={() => handleCartItemPress(index)}
+                accessibilityRole="button"
+                accessibilityLabel={`Toca dos veces para quitar ${product.name} del carrito`}
+              >
                 <View style={styles.cartThumb}>
-                  <Text style={styles.thumbText}>Image</Text>
+                  {product.imageUri ? (
+                    <Image
+                      source={{ uri: product.imageUri }}
+                      style={styles.cartThumbImage}
+                      accessibilityLabel={`Imagen de ${product.name} en el carrito`}
+                    />
+                  ) : (
+                    <Text style={styles.thumbText}>Image</Text>
+                  )}
                 </View>
 
                 <View style={styles.cartItemInfo}>
-                  <Text style={styles.cartName}>{product.name}</Text>
-                  <Text style={styles.cartPrice}>${product.price.toLocaleString()}</Text>
+                  <Text style={[styles.cartName, { color: colors.text }]}>{product.name}</Text>
+                  <Text style={[styles.cartPrice, { color: colors.text }]}>${product.price.toLocaleString()}</Text>
                 </View>
 
                 <View style={styles.pointsBadge}>
                   <Text style={styles.pointsText}>+{product.points} Pts</Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
 
             <View style={styles.cartTotalRow}>
-              <Text style={styles.cartTotalLabel}>Total: ${totalPrice.toLocaleString()}</Text>
-              <Text style={styles.cartTotalPoints}>Total Pts: +{totalPoints} Pts</Text>
+              <Text style={[styles.cartTotalLabel, { color: colors.text }]}>Total: ${totalPrice.toLocaleString()}</Text>
+              <Text style={[styles.cartTotalPoints, { color: colors.text }]}>Total Pts: +{totalPoints} Pts</Text>
             </View>
 
-            <Pressable style={styles.payButton}>
+            <Pressable style={[styles.payButton, { backgroundColor: colors.accent }]}>
               <Text style={styles.payText}>PAGAR</Text>
             </Pressable>
           </View>
         )}
 
+        {loadError ? (
+          <View style={styles.productListMessage}>
+            <Text style={[styles.productName, { color: colors.error }]}>{loadError}</Text>
+            <Pressable onPress={() => void reloadProducts().catch(() => undefined)}>
+              <Text style={[styles.productName, { color: colors.text }]}>Reintentar</Text>
+            </Pressable>
+          </View>
+        ) : isLoading ? (
+          <View style={styles.productListMessage}>
+            <Text style={[styles.productName, { color: colors.text }]}>
+              Cargando productos...
+            </Text>
+          </View>
+        ) : (
         <ScrollView contentContainerStyle={styles.productsGrid} showsVerticalScrollIndicator={false}>
-          {products.map((product) => (
-            <Pressable key={product.id} style={styles.productCard} onPress={() => addToCart(product)}>
+          {products.map((product, index) => (
+            <View key={`${product.id}-${index}`} style={[styles.productCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <View style={styles.productImage}>
-                <Text style={styles.productImageText}>{product.image}</Text>
+                {product.imageUri ? (
+                  <Image
+                    source={{ uri: product.imageUri }}
+                    style={styles.productImageActual}
+                    accessibilityLabel={`Imagen de ${product.name}`}
+                  />
+                ) : (
+                  <Text style={styles.productImageText}>Image</Text>
+                )}
               </View>
 
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.productPrice}>${product.price.toLocaleString()}</Text>
+              <Text style={[styles.productName, { color: colors.text }]}>{product.name}</Text>
+              <Text style={[styles.productPrice, { color: colors.text }]}>${product.price.toLocaleString()}</Text>
 
               <View style={styles.productPoints}>
                 <Text style={styles.productPointsText}>+{product.points} Pts</Text>
               </View>
-            </Pressable>
+              <Pressable
+                style={[styles.addToCartButton, { backgroundColor: colors.accent }]}
+                onPress={() => addToCart(product)}
+                accessibilityRole="button"
+                accessibilityLabel={`Agregar ${product.name} al carrito`}
+              >
+                <Text style={[styles.addToCartText, { color: colors.accentText }]}>Agregar al carrito</Text>
+              </Pressable>
+            </View>
           ))}
         </ScrollView>
+        )}
 
-        <View style={styles.bottomTabs}>
+        <View style={[styles.bottomTabs, { borderTopColor: colors.border }]}>
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProfileScreen")}>
-            <Text style={styles.tabText}>Perfil</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Perfil</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProductsScreen")}>
-            <Text style={styles.tabText}>Productos</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Productos</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("RewardsScreen")}>
-            <Text style={styles.tabText}>Premios</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Premios</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("SettingsScreen")}>
-            <Text style={styles.tabText}>Ajustes</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Ajustes</Text>
           </Pressable>
         </View>
       </View>
@@ -144,6 +204,12 @@ export function ProductsScreen({ navigation }: ProductsScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  productListMessage: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
   screen: {
     flex: 1,
     backgroundColor: "#050207",
@@ -219,6 +285,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
+  cartHint: {
+    color: "#e4c5ef",
+    fontSize: 11,
+    textAlign: "center",
+    marginBottom: 8,
+  },
   cartItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -235,6 +307,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
+  },
+  cartThumbImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
   },
   thumbText: {
     color: "#5a4a5d",
@@ -318,6 +395,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 8,
   },
+  productImageActual: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
   productImageText: {
     color: "#5d4d60",
     fontSize: 12,
@@ -346,6 +428,21 @@ const styles = StyleSheet.create({
     color: "#34260b",
     fontSize: 10,
     fontWeight: "800",
+  },
+  addToCartButton: {
+    alignSelf: "stretch",
+    backgroundColor: "#d89ce8",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 10,
+    alignItems: "center",
+  },
+  addToCartText: {
+    color: "#4a0f51",
+    fontSize: 11,
+    fontWeight: "800",
+    textAlign: "center",
   },
   bottomTabs: {
     flexDirection: "row",

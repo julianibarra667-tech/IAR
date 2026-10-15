@@ -2,26 +2,47 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { ProfileCard } from "../components/ProfileCard";
-
-type RootStackParamList = {
-  ProfileScreen: undefined;
-  ProductsScreen: undefined;
-  LoginScreen: undefined;
-  RewardsScreen: undefined;
-  SettingsScreen: undefined;
-};
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
+import type { RootStackParamList } from "../navigation/types";
 
 type ProfileScreenProps = NativeStackScreenProps<RootStackParamList, "ProfileScreen">;
 
-export function ProfileScreen({ navigation }: ProfileScreenProps) {
-  return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
+function getLevelProgress(points: number) {
+  if (points >= 1000) {
+    return { progress: 100, progressText: `${points.toLocaleString()} EXP` };
+  }
 
-      <View style={styles.phoneShell}>
+  const levelStart = points >= 500 ? 500 : points >= 200 ? 200 : 0;
+  const levelEnd = points >= 500 ? 1000 : points >= 200 ? 500 : 200;
+  const pointsInLevel = points - levelStart;
+  const pointsForLevel = levelEnd - levelStart;
+
+  return {
+    progress: (pointsInLevel / pointsForLevel) * 100,
+    progressText: `${pointsInLevel} / ${pointsForLevel} EXP`,
+  };
+}
+
+export function ProfileScreen({ navigation }: ProfileScreenProps) {
+  const { theme, colors } = useTheme();
+  const { user, signOut } = useAuth();
+  const levelProgress = getLevelProgress(user?.points ?? 0);
+
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.screen }]}>
+      <StatusBar style={theme === "dark" ? "light" : "dark"} />
+
+      <View style={[styles.phoneShell, { backgroundColor: colors.shell, borderColor: colors.border }]}>
         <View style={styles.topBar}>
-          <Pressable style={styles.tabButton} onPress={() => navigation.navigate("LoginScreen")}>
-            <Text style={styles.tabText}>Cerrar Sesion</Text>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => {
+              signOut();
+              navigation.navigate("LoginScreen");
+            }}
+          >
+            <Text style={[styles.tabText, { color: colors.text }]}>Cerrar Sesion</Text>
           </Pressable>
 
           <Pressable style={styles.logoutButton}>
@@ -29,31 +50,43 @@ export function ProfileScreen({ navigation }: ProfileScreenProps) {
           </Pressable>
         </View>
 
-        <Text style={styles.brand}>Malva</Text>
+        <Text style={[styles.brand, { color: colors.text }]}>Malva</Text>
 
-        <ProfileCard
-          name="Julian Ibarra"
-          email="Julianibarra0803@#####"
-          level="Plata"
-          points="1,250 Pts."
-          progress={52}
-        />
+        {user ? (
+          <ProfileCard
+            name={user.name}
+            lastName={user.lastName}
+            email={`@${user.username}`}
+            createdAt={new Date(user.createdAt).toLocaleDateString()}
+            level={user.level}
+            points={user.points}
+            progress={levelProgress.progress}
+            progressText={levelProgress.progressText}
+          />
+        ) : (
+          <Text style={[styles.emptyProfile, { color: colors.mutedText }]}>
+            Inicia sesión para ver tu perfil.
+          </Text>
+        )}
 
-        <View style={styles.bottomTabs}>
-          <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProfileScreen")}>
-            <Text style={styles.tabTextActive}>Perfil</Text>
+        <View style={[styles.bottomTabs, { borderTopColor: colors.border }]}>
+          <Pressable
+            style={styles.tabButton}
+            onPress={() => navigation.navigate("ProfileScreen")}
+          >
+            <Text style={[styles.tabTextActive, { color: colors.text }]}>Perfil</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProductsScreen")}>
-            <Text style={styles.tabText}>Productos</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Productos</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("RewardsScreen")}>
-            <Text style={styles.tabText}>Premios</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Premios</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("SettingsScreen")}>
-            <Text style={styles.tabText}>Ajustes</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Ajustes</Text>
           </Pressable>
         </View>
       </View>
@@ -162,5 +195,10 @@ const styles = StyleSheet.create({
     color: "#f5dcff",
     fontSize: 12,
     fontWeight: "700",
+  },
+  emptyProfile: {
+    textAlign: "center",
+    fontSize: 16,
+    marginTop: 32,
   },
 });

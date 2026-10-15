@@ -1,24 +1,33 @@
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useTheme } from "../context/ThemeContext";
 
 type ProfileCardProps = {
   name: string;
-  email?: string;
-  level?: string;
-  points?: string;
-  progress?: number;
+  lastName: string;
+  email: string;
+  createdAt: string;
+  level: string;
+  points: number;
+  progress: number;
+  progressText: string;
   image?: string;
 };
 
 export function ProfileCard({
   name,
-  email = "correo@ejemplo.com",
-  level = "Plata",
-  points = "1,250 Pts.",
-  progress = 52,
+  lastName,
+  email,
+  createdAt,
+  level,
+  points,
+  progress,
+  progressText,
   image,
 }: ProfileCardProps) {
+  const { colors } = useTheme();
+
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: colors.subtleSurface }]}>
       <View style={styles.avatarWrap}>
         {image ? (
           <Image source={{ uri: image }} style={styles.avatar} />
@@ -28,26 +37,30 @@ export function ProfileCard({
       </View>
 
       <View style={styles.infoBlock}>
-        <Text style={styles.infoText}>{name}</Text>
-        <Text style={styles.infoText}>Apellido</Text>
-        <Text style={styles.infoText}>{email}</Text>
-        <Text style={styles.infoText}>Fecha de creacion</Text>
-        <Text style={styles.infoText}>Progreso</Text>
+        <Text style={[styles.infoText, { color: colors.text }]}>{name}</Text>
+        <Text style={[styles.infoText, { color: colors.text }]}>{lastName}</Text>
+        <Text style={[styles.infoText, { color: colors.text }]}>{email}</Text>
+        <Text style={[styles.infoText, { color: colors.text }]}>
+          Creada: {createdAt}
+        </Text>
+        <Text style={[styles.infoText, { color: colors.text }]}>Progreso</Text>
       </View>
 
-      <View style={styles.progressSection}>
+      <View style={[styles.progressSection, { backgroundColor: colors.surface }]}>
         <View style={styles.progressHeader}>
           <Text style={styles.expLabel}>EXP</Text>
-          <Text style={styles.levelText}>Nivel: {level}</Text>
+          <Text style={[styles.levelText, { color: colors.text }]}>Nivel: {level}</Text>
         </View>
 
-        <View style={styles.progressBarWrap}>
-          <View style={[styles.progressBar, { width: `${progress}%` }]} />
+        <View style={[styles.progressBarWrap, { backgroundColor: colors.surfaceStrong }]}>
+          <View style={[styles.progressBar, { width: `${progress}%`, backgroundColor: colors.accent }]} />
         </View>
 
         <View style={styles.pointsRow}>
-          <Text style={styles.pointsText}>1405/3000</Text>
-          <Text style={styles.pointsText}>{points}</Text>
+          <Text style={[styles.pointsText, { color: colors.text }]}>{progressText}</Text>
+          <Text style={[styles.pointsText, { color: colors.text }]}>
+            {points.toLocaleString()} Pts.
+          </Text>
         </View>
       </View>
     </View>

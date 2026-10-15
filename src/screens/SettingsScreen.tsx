@@ -1,11 +1,14 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ThemeName, useTheme } from "../context/ThemeContext";
 
 type RootStackParamList = {
   ProfileScreen: undefined;
   ProductsScreen: undefined;
   LoginScreen: undefined;
+  ProductConfigScreen: undefined;
+  RewardConfigScreen: undefined;
   SettingsScreen: undefined;
   RewardsScreen: undefined;
 };
@@ -18,62 +21,119 @@ const menuItems = [
   { label: "Conf. Puntos", enabled: true },
   { label: "Usuarios", enabled: true },
   { label: "Conf. Premios", enabled: true },
-  { label: "Eliminar Cuenta", enabled: false },
+  { label: "Conf. Productos", enabled: true },
+  { label: "Eliminar Cuenta", enabled: true },
   { label: "Terminos y Condiciones", enabled: false },
   { label: "Ayuda/ PQRS", enabled: false },
 ];
 
 export function SettingsScreen({ navigation }: SettingsScreenProps) {
-  return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
+  const { theme, colors, isLoading: isThemeLoading, syncError, changeTheme } = useTheme();
 
-      <View style={styles.phoneShell}>
+  const handleThemeChange = (nextTheme: ThemeName) => {
+    if (nextTheme === theme) {
+      return;
+    }
+
+    void changeTheme(nextTheme).catch((error: unknown) => {
+      Alert.alert(
+        "No se pudo cambiar el tema",
+        error instanceof Error ? error.message : "No se pudo guardar el tema."
+      );
+    });
+  };
+
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.screen }]}>
+      <StatusBar style={theme === "dark" ? "light" : "dark"} />
+
+      <View style={[styles.phoneShell, { backgroundColor: colors.shell, borderColor: colors.border }]}>
         <View style={styles.topBar}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backIcon}>←</Text>
           </Pressable>
 
-          <Text style={styles.brand}>Malva</Text> 
+          <Text style={[styles.brand, { color: colors.text }]}>Malva</Text>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("LoginScreen")}>
-            <Text style={styles.tabText}>Cerrar Sesion</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Cerrar Sesion</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Ajustes</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Ajustes</Text>
+        {syncError ? (
+          <Text style={[styles.themeError, { color: colors.error }]}>{syncError}</Text>
+        ) : null}
 
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
           {menuItems.map((item, index) => (
             <Pressable
               key={`${item.label}-${index}`}
-              style={[styles.row, !item.enabled && styles.disabledRow]}
+              style={[
+                styles.row,
+                { backgroundColor: colors.subtleSurface },
+                !item.enabled && styles.disabledRow,
+              ]}
+              onPress={() => {
+                if (item.label === "Conf. Productos") {
+                  navigation.navigate("ProductConfigScreen");
+                } else if (item.label === "Conf. Premios") {
+                  navigation.navigate("RewardConfigScreen");
+                } else if (item.label === "Tema") {
+                  Alert.alert("Elegir tema", "Selecciona la apariencia de la aplicación.", [
+                    {
+                      text: "Oscuro",
+                      onPress: () => handleThemeChange("dark"),
+                    },
+                    {
+                      text: "Claro",
+                      onPress: () => handleThemeChange("light"),
+                    },
+                    { text: "Cancelar", style: "cancel" },
+                  ]);
+                }
+              }}
+              accessibilityRole="button"
+              disabled={!item.enabled || (item.label === "Tema" && isThemeLoading)}
             >
-              <Text style={[styles.rowText, !item.enabled && styles.disabledText]}>{item.label}</Text>
-              {item.enabled && <View style={styles.toggle} />}
+              <Text style={[styles.rowText, { color: colors.text }, !item.enabled && styles.disabledText]}>
+                {item.label === "Tema"
+                  ? `Tema · ${isThemeLoading ? "Cargando..." : theme === "dark" ? "Oscuro" : "Claro"}`
+                  : item.label}
+              </Text>
+              {item.enabled && (
+                <View
+                  style={[
+                    styles.toggle,
+                    item.label === "Tema"
+                      ? { backgroundColor: theme === "dark" ? "#51405a" : "#f0c957" }
+                      : { backgroundColor: colors.text },
+                  ]}
+                />
+              )}
             </Pressable>
           ))}
         </ScrollView>
 
-        <Pressable style={styles.scanButton}>
+        <Pressable style={[styles.scanButton, { backgroundColor: colors.accent }]}>
           <Text style={styles.scanButtonText}>Escanear QR</Text>
         </Pressable>
 
         <View style={styles.bottomTabs}>
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProfileScreen")}>
-            <Text style={styles.tabText}>Perfil</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Perfil</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProductsScreen")}>
-            <Text style={styles.tabText}>Productos</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Productos</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("RewardsScreen")}>
-            <Text style={styles.tabText}>Premios</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Premios</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("SettingsScreen")}>
-            <Text style={styles.tabTextActive}>Ajustes</Text>
+            <Text style={[styles.tabTextActive, { color: colors.text }]}>Ajustes</Text>
           </Pressable>
         </View>
       </View>
@@ -164,6 +224,11 @@ const styles = StyleSheet.create({
     color: "#f7d8ff",
     textAlign: "center",
     marginBottom: 10,
+  },
+  themeError: {
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 8,
   },
   list: {
     maxHeight: 430,

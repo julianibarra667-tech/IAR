@@ -1,7 +1,9 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Reward, useRewards } from "../context/RewardsContext";
+import { useTheme } from "../context/ThemeContext";
 
 type RootStackParamList = {
   ProfileScreen: undefined;
@@ -11,31 +13,14 @@ type RootStackParamList = {
   SettingsScreen: undefined;
 };
 
-type Reward = {
-  id: number;
-  title: string;
-  value: number;
-  points: number;
-  description: string;
-};
-
 type RewardsScreenProps = NativeStackScreenProps<RootStackParamList, "RewardsScreen">;
 
-const rewards: Reward[] = [
-  { id: 1, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  { id: 2, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  { id: 3, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  { id: 4, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  { id: 5, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  { id: 6, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-];
-
 export function RewardsScreen({ navigation }: RewardsScreenProps) {
+  const { rewards, isLoading, loadError, reloadRewards } = useRewards();
+  const { theme, colors } = useTheme();
   const [isRedeemOpen, setIsRedeemOpen] = useState(false);
-  const [redeemList, setRedeemList] = useState<Reward[]>([
-    { id: 1, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-    { id: 2, title: "Cupón de $20.000 en tu compra", value: 20000, points: 100, description: "Próximamente" },
-  ]);
+  const [redeemList, setRedeemList] = useState<Reward[]>([]);
+  const lastRedeemTap = useRef<{ index: number; time: number } | null>(null);
 
   const totalRedeemPoints = useMemo(
     () => redeemList.reduce((sum, reward) => sum + reward.points, 0),
@@ -46,74 +31,135 @@ export function RewardsScreen({ navigation }: RewardsScreenProps) {
     setRedeemList((current) => [...current, reward]);
   };
 
-  return (
-    <View style={styles.screen}>
-      <StatusBar style="light" />
+  const handleRedeemItemPress = (index: number) => {
+    const now = Date.now();
+    const previousTap = lastRedeemTap.current;
 
-      <View style={styles.phoneShell}>
+    if (previousTap?.index === index && now - previousTap.time < 350) {
+      setRedeemList((current) =>
+        current.filter((_, itemIndex) => itemIndex !== index)
+      );
+      lastRedeemTap.current = null;
+      return;
+    }
+
+    lastRedeemTap.current = { index, time: now };
+  };
+
+  return (
+    <View style={[styles.screen, { backgroundColor: colors.screen }]}>
+      <StatusBar style={theme === "dark" ? "light" : "dark"} />
+
+      <View style={[styles.phoneShell, { backgroundColor: colors.shell, borderColor: colors.border }]}>
         <View style={styles.topBar}>
           <Pressable onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backIcon}> ← </Text>
           </Pressable>
 
-          <Text style={styles.brand}>Malva</Text>
+          <Text style={[styles.brand, { color: colors.text }]}>Malva</Text>
 
           <Pressable style={styles.cartToggle} onPress={() => setIsRedeemOpen((value) => !value)}>
             <Text style={styles.cartIcon}>🛒</Text>
           </Pressable>
         </View>
 
-        <View style={styles.progressBox}>
-          <Text style={styles.progressText}>Estas a 250 Pts de subir a nivel</Text>
+        <View style={[styles.progressBox, { backgroundColor: colors.subtleSurface }]}>
+          <Text style={[styles.progressText, { color: colors.text }]}>Estas a 250 Pts de subir a nivel</Text>
           <View style={styles.progressBarWrap}>
             <View style={styles.progressBar} />
           </View>
         </View>
 
         {isRedeemOpen && (
-          <View style={styles.redeemPanel}>
-            {redeemList.map((reward, index) => (
-              <View key={`${reward.title}-${index}`} style={styles.redeemItem}>
-                <View style={styles.redeemInfo}>
-                  <Text style={styles.redeemTitle}>{reward.title}</Text>
-                  <Text style={styles.redeemValue}>${reward.value.toLocaleString()}</Text>
-                </View>
+          <View style={[styles.redeemPanel, { backgroundColor: colors.subtleSurface }]}>
+            <Text style={[styles.emptyRedeemText, { color: colors.mutedText }]}>
+              Toca dos veces un premio para quitarlo
+            </Text>
+            {redeemList.length === 0 ? (
+              <Text style={[styles.emptyRedeemText, { color: colors.text }]}>Aún no has elegido premios.</Text>
+            ) : (
+              redeemList.map((reward, index) => (
+                <Pressable
+                  key={`${reward.id}-${index}`}
+                  style={[styles.redeemItem, { backgroundColor: colors.surfaceStrong }]}
+                  onPress={() => handleRedeemItemPress(index)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Toca dos veces para quitar ${reward.title} de tus premios`}
+                >
+                  <View style={styles.redeemInfo}>
+                    <Text style={[styles.redeemTitle, { color: colors.text }]}>{reward.title}</Text>
+                    <Text style={[styles.redeemValue, { color: colors.text }]}>
+                      ${reward.value.toLocaleString()}
+                    </Text>
+                  </View>
 
-                <View style={styles.pointsBadge}>
-                  <Text style={styles.pointsText}>{reward.points} Pts.</Text>
-                </View>
-              </View>
-            ))}
+                  <View style={styles.pointsBadge}>
+                    <Text style={styles.pointsText}>{reward.points} Pts.</Text>
+                  </View>
+                </Pressable>
+              ))
+            )}
+            <Text style={[styles.redeemTotal, { color: colors.text }]}>
+              Puntos para canjear: {totalRedeemPoints} Pts.
+            </Text>
           </View>
         )}
 
         <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-          {rewards.map((reward) => (
-            <Pressable key={reward.id} style={styles.rewardCard} onPress={() => addReward(reward)}>
-              <Text style={styles.rewardTitle}>{reward.title}</Text>
-              <Text style={styles.rewardValue}>${reward.value.toLocaleString()}</Text>
-              <View style={styles.rewardBadge}>
-                <Text style={styles.rewardBadgeText}>{reward.points} Pts.</Text>
-              </View>
-            </Pressable>
-          ))}
+          {loadError ? (
+            <View style={styles.errorContainer}>
+              <Text style={[styles.emptyRewardsText, { color: colors.error }]}>{loadError}</Text>
+              <Pressable
+                style={[styles.retryButton, { backgroundColor: colors.accent }]}
+                onPress={() => void reloadRewards()}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.retryButtonText, { color: colors.accentText }]}>Reintentar</Text>
+              </Pressable>
+            </View>
+          ) : isLoading ? (
+            <Text style={[styles.emptyRewardsText, { color: colors.mutedText }]}>Cargando premios...</Text>
+          ) : rewards.length === 0 ? (
+            <Text style={[styles.emptyRewardsText, { color: colors.mutedText }]}>
+              Aún no hay premios disponibles.
+            </Text>
+          ) : (
+            rewards.map((reward) => (
+              <Pressable
+                key={reward.id}
+                style={[styles.rewardCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                onPress={() => addReward(reward)}
+                accessibilityRole="button"
+                accessibilityLabel={`Agregar ${reward.title} a tus premios`}
+              >
+                <Text style={[styles.rewardTitle, { color: colors.text }]}>{reward.title}</Text>
+                <Text style={[styles.rewardValue, { color: colors.text }]}>
+                  ${reward.value.toLocaleString()}
+                </Text>
+                <Text style={[styles.rewardDescription, { color: colors.mutedText }]}>{reward.description}</Text>
+                <View style={styles.rewardBadge}>
+                  <Text style={styles.rewardBadgeText}>{reward.points} Pts.</Text>
+                </View>
+              </Pressable>
+            ))
+          )}
         </ScrollView>
 
-        <View style={styles.bottomTabs}>
+        <View style={[styles.bottomTabs, { borderTopColor: colors.border }]}>
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProfileScreen")}>
-            <Text style={styles.tabText}>Perfil</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Perfil</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("ProductsScreen")}>
-            <Text style={styles.tabText}>Productos</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Productos</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("RewardsScreen")}>
-            <Text style={styles.tabTextActive}>Premios</Text>
+            <Text style={[styles.tabTextActive, { color: colors.text }]}>Premios</Text>
           </Pressable>
 
           <Pressable style={styles.tabButton} onPress={() => navigation.navigate("SettingsScreen")}>
-            <Text style={styles.tabText}>Ajustes</Text>
+            <Text style={[styles.tabText, { color: colors.text }]}>Ajustes</Text>
           </Pressable>
         </View>
       </View>
@@ -228,6 +274,19 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 12,
   },
+  emptyRedeemText: {
+    color: "#f5dcff",
+    fontSize: 12,
+    textAlign: "center",
+    paddingVertical: 8,
+  },
+  redeemTotal: {
+    color: "#f5dcff",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "right",
+    marginTop: 2,
+  },
   redeemItem: {
     backgroundColor: "#5e1d68",
     borderRadius: 12,
@@ -267,6 +326,28 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingBottom: 12,
   },
+  emptyRewardsText: {
+    width: "100%",
+    color: "#f2d5ff",
+    fontSize: 14,
+    textAlign: "center",
+    paddingVertical: 24,
+  },
+  errorContainer: {
+    width: "100%",
+    alignItems: "center",
+  },
+  retryButton: {
+    backgroundColor: "#5f0365",
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  retryButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   rewardCard: {
     width: "48%",
     backgroundColor: "#4a1a58",
@@ -289,6 +370,13 @@ const styles = StyleSheet.create({
     color: "#f5dcff",
     fontSize: 12,
     fontWeight: "700",
+    marginBottom: 8,
+  },
+  rewardDescription: {
+    color: "#e4c5ef",
+    fontSize: 11,
+    textAlign: "center",
+    minHeight: 30,
     marginBottom: 8,
   },
   rewardBadge: {

@@ -2,18 +2,18 @@
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useState } from "react";
 import {
-  Button,
+  Alert,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   View
 } from "react-native";
-
-type RootStackParamList = {
-  LoginScreen: undefined;
-  ProductsScreen: undefined;
-};
+import { useTheme } from "../context/ThemeContext";
+import { useAuth } from "../context/AuthContext";
+import { login } from "../services/auth.service";
+import type { RootStackParamList } from "../navigation/types";
 
 type ExampleScreenProps = NativeStackScreenProps<
   RootStackParamList,
@@ -23,46 +23,95 @@ type ExampleScreenProps = NativeStackScreenProps<
 export function LoginScreen({ navigation }: ExampleScreenProps) {
   const [usuario, setUsuario] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { theme, colors } = useTheme();
+  const { signIn } = useAuth();
+
+  const handleLogin = async () => {
+    if (!usuario.trim() || !password) {
+      Alert.alert("Datos incompletos", "Ingresa tu usuario y contraseña.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await login({ username: usuario.trim(), password });
+      signIn(result.user);
+      navigation.navigate("ProfileScreen");
+    } catch (error) {
+      Alert.alert(
+        "No se pudo iniciar sesión",
+        error instanceof Error ? error.message : "Ocurrió un error inesperado."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.container, { backgroundColor: colors.screen }]}>
+      <StatusBar barStyle={theme === "dark" ? "light-content" : "dark-content"} />
 
-      <View style={styles.card}>
-        <Text style={styles.brand}>Malva</Text>
+      <View style={[styles.card, { backgroundColor: colors.shell }]}>
+        <Text style={[styles.brand, { color: colors.text }]}>Malva</Text>
 
-        <Text style={styles.label}>Usuario</Text>
+        <Text style={[styles.label, { color: colors.label }]}>Usuario</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.input, color: colors.inputText }]}
           placeholder="Ingresar usuario"
           placeholderTextColor="#a18bb8"
           value={usuario}
           onChangeText={setUsuario}
           autoCapitalize="none"
+          autoCorrect={false}
+          accessibilityLabel="Nombre de usuario"
         />
 
-        <Text style={styles.label}>Contraseña</Text>
+        <Text style={[styles.label, { color: colors.label }]}>Contraseña</Text>
         <TextInput
-          style={styles.input}
+          style={[styles.input, { backgroundColor: colors.input, color: colors.inputText }]}
           placeholder="Ingresar contraseña"
           placeholderTextColor="#a18bb8"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          autoCapitalize="none"
+          accessibilityLabel="Contraseña"
         />
 
-        <Button title="Iniciar sesión" onPress={() => navigation.navigate("ProductsScreen")}
-            color = "#5F0365"
-        />
+        <View style={styles.buttonsRow}>
+          <Pressable
+            style={[styles.button, styles.firstButton]}
+            onPress={handleLogin}
+            disabled={isSubmitting}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>
+              {isSubmitting ? "Ingresando..." : "Iniciar sesión"}
+            </Text>
+          </Pressable>
 
-        <View style={styles.linksRow}>
-          <Text style={styles.link}>Olvide mi contraseña</Text>
-          <Text style={styles.link}>Olvide mi Usuario</Text>
+          <Pressable
+            style={[styles.button, styles.secondButton]}
+            onPress={() => navigation.navigate("RegisterScreen")}
+            accessibilityRole="button"
+          >
+            <Text style={styles.buttonText}>Crear cuenta</Text>
+          </Pressable>
+
         </View>
 
-        <Text style={styles.terms}>Terminos y condiciones</Text>
+
+         <Pressable  onPress={() => navigation.navigate("TermsScreen")}>
+              <Text style={[styles.link, { color: colors.text }]}>Olvide mi contraseña</Text>
+        </Pressable>
+
+         <Pressable  onPress={() => navigation.navigate("TermsScreen")}>
+              <Text style={[styles.link, { color: colors.text }]}>Olvide mi Usuario</Text>
+        </Pressable>
+
+        </View>
       </View>
-    </View>
   );
 }
 
@@ -122,17 +171,30 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   button: {
-    width: "100%",
-    backgroundColor: "#c460d9",
+    flex: 1,
+    backgroundColor: "#5F0365",
     borderRadius: 14,
     paddingVertical: 16,
     marginTop: 18,
     alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  buttonsRow: {
+    width: "100%",
+    flexDirection: "row",
+  },
+  firstButton: {
+    marginRight: 6,
+  },
+  secondButton: {
+    marginLeft: 6,
   },
   buttonText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
+    textAlign: "center",
   },
   linksRow: {
     width: "100%",
@@ -141,6 +203,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   link: {
+    marginTop: 10,
     color: "#f5d9ff",
     fontSize: 12,
     textDecorationLine: "underline",
@@ -150,5 +213,6 @@ const styles = StyleSheet.create({
     color: "#f5d9ff",
     fontSize: 12,
     textAlign: "center",
+    textDecorationLine: "underline"
   },
 });
